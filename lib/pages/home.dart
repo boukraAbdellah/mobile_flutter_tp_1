@@ -4,6 +4,7 @@ import 'package:tp_1/pages/favorites.dart';
 import 'package:tp_1/main.dart';
 import 'package:tp_1/database_helper.dart';
 
+
 class HomePage extends StatelessWidget {
   const HomePage({super.key});
 
@@ -23,9 +24,14 @@ class HomePage extends StatelessWidget {
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.menu, color: Colors.black),
-            onPressed: () {},
-          )
+            icon: const Icon(Icons.favorite, color: Colors.red),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const Favorites()),
+              );
+            },
+          ),
         ],
       ),
       body: const Padding(
@@ -45,7 +51,8 @@ class SongPlayer extends StatefulWidget {
 
 List<Map<String, String>> favoriteSongs = [];
 
-class _SongPlayerState extends State<SongPlayer> with WidgetsBindingObserver, RouteAware {
+class _SongPlayerState extends State<SongPlayer>
+    with WidgetsBindingObserver, RouteAware {
   DatabaseHelper databaseHelper = DatabaseHelper.instance;
   final AudioPlayer _audioPlayer = AudioPlayer();
   bool isPlaying = false;
@@ -58,19 +65,22 @@ class _SongPlayerState extends State<SongPlayer> with WidgetsBindingObserver, Ro
       'title': 'سورة العاديات',
       'artist': 'بدر التركي',
       'path': 'surah1.mp3',
-      'description': 'سورة العاديات هي السورة رقم 100 في القرآن الكريم، وهي من السور المكية. تحتوي على 11 آية وتتحدث عن الخيول المغيرة في ساحات القتال، وعن طبيعة الإنسان وحبه للمال، وعن البعث والحساب. تعتبر من السور القصيرة والقوية في معانيها.',
+      'description':
+          'سورة العاديات هي السورة رقم 100 في القرآن الكريم، وهي من السور المكية. تحتوي على 11 آية وتتحدث عن الخيول المغيرة في ساحات القتال، وعن طبيعة الإنسان وحبه للمال، وعن البعث والحساب. تعتبر من السور القصيرة والقوية في معانيها.',
     },
     {
       'title': 'سورة القارعة',
       'artist': 'بدر التركي',
       'path': 'surah2.mp3',
-      'description': 'سورة القارعة هي السورة رقم 101 في القرآن الكريم، وهي من السور المكية. تتكون من 11 آية وتتحدث عن يوم القيامة ووصف أهواله. القارعة هي اسم من أسماء يوم القيامة، لأنها تقرع القلوب بالفزع والخوف.',
+      'description':
+          'سورة القارعة هي السورة رقم 101 في القرآن الكريم، وهي من السور المكية. تتكون من 11 آية وتتحدث عن يوم القيامة ووصف أهواله. القارعة هي اسم من أسماء يوم القيامة، لأنها تقرع القلوب بالفزع والخوف.',
     },
     {
       'title': 'سورة النصر',
       'artist': 'بدر التركي',
       'path': 'surah3.mp3',
-      'description': 'سورة النصر هي السورة رقم 110 في القرآن الكريم، وهي من السور المدنية. تتكون من 3 آيات فقط وهي آخر سورة كاملة نزلت على النبي محمد ﷺ، وتعتبر من علامات قرب وفاته. تتحدث عن فتح مكة ودخول الناس في دين الله أفواجا.',
+      'description':
+          'سورة النصر هي السورة رقم 110 في القرآن الكريم، وهي من السور المدنية. تتكون من 3 آيات فقط وهي آخر سورة كاملة نزلت على النبي محمد ﷺ، وتعتبر من علامات قرب وفاته. تتحدث عن فتح مكة ودخول الناس في دين الله أفواجا.',
     },
   ];
 
@@ -84,7 +94,7 @@ class _SongPlayerState extends State<SongPlayer> with WidgetsBindingObserver, Ro
     _audioPlayer.onPlayerStateChanged.listen((state) {
       setState(() => isPlaying = state == PlayerState.playing);
     });
-    
+
     loadFavoritesFromDB();
   }
 
@@ -98,7 +108,8 @@ class _SongPlayerState extends State<SongPlayer> with WidgetsBindingObserver, Ro
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.paused || state == AppLifecycleState.inactive) {
+    if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.inactive) {
       if (isPlaying) {
         _audioPlayer.pause();
       }
@@ -116,7 +127,7 @@ class _SongPlayerState extends State<SongPlayer> with WidgetsBindingObserver, Ro
     super.didChangeDependencies();
     final route = ModalRoute.of(context);
     if (route is PageRoute) {
-      routeObserver.subscribe( this, route); 
+      routeObserver.subscribe(this, route);
     }
   }
 
@@ -144,11 +155,19 @@ class _SongPlayerState extends State<SongPlayer> with WidgetsBindingObserver, Ro
 
   Future<void> playMusic() async {
     try {
-      final source = AssetSource('audio/${songs[currentIndex]['path']}');
+      final currentSong = songs[currentIndex];
+      final isLocalFile = currentSong['isLocal'] == 'true';
+
       if (isPlaying) {
         await _audioPlayer.pause();
       } else {
-        await _audioPlayer.play(source);
+        if (isLocalFile) {
+          // Play from device storage
+          await _audioPlayer.play(DeviceFileSource(currentSong['path']!));
+        } else {
+          // Play from assets
+          await _audioPlayer.play(AssetSource('audio/${currentSong['path']}'));
+        }
       }
     } catch (e) {
       print('Playback error: $e');
@@ -184,10 +203,9 @@ class _SongPlayerState extends State<SongPlayer> with WidgetsBindingObserver, Ro
     final currentSong = songs[currentIndex];
     // Check if the song exists in the database
     final allFavs = await databaseHelper.queryAllRows();
-    final songExists = allFavs.any((row) => 
-      row[DatabaseHelper.columnTitle] == currentSong['title'] &&
-      row[DatabaseHelper.columnArtist] == currentSong['artist']
-    );
+    final songExists = allFavs.any((row) =>
+        row[DatabaseHelper.columnTitle] == currentSong['title'] &&
+        row[DatabaseHelper.columnArtist] == currentSong['artist']);
 
     setState(() {
       isFavorite = songExists;
@@ -199,9 +217,10 @@ class _SongPlayerState extends State<SongPlayer> with WidgetsBindingObserver, Ro
     final row = {
       DatabaseHelper.columnTitle: song['title'],
       DatabaseHelper.columnArtist: song['artist'],
-      DatabaseHelper.columnDescription: song['description'] ?? 'No description available',
+      DatabaseHelper.columnDescription:
+          song['description'] ?? 'No description available',
     };
-    
+
     await databaseHelper.insert(row);
     // Also update the in-memory list for immediate UI updates
     if (!favoriteSongs.contains(song)) {
@@ -213,24 +232,23 @@ class _SongPlayerState extends State<SongPlayer> with WidgetsBindingObserver, Ro
     // Find the song ID in the database
     final allFavs = await databaseHelper.queryAllRows();
     for (var row in allFavs) {
-      if (row[DatabaseHelper.columnTitle] == song['title'] && 
+      if (row[DatabaseHelper.columnTitle] == song['title'] &&
           row[DatabaseHelper.columnArtist] == song['artist']) {
         await databaseHelper.delete(row[DatabaseHelper.columnId]);
         break;
       }
     }
-    
+
     // Also update the in-memory list
-    favoriteSongs.removeWhere((favSong) => 
-      favSong['title'] == song['title'] && 
-      favSong['artist'] == song['artist']
-    );
+    favoriteSongs.removeWhere((favSong) =>
+        favSong['title'] == song['title'] &&
+        favSong['artist'] == song['artist']);
   }
 
   Future<void> loadFavoritesFromDB() async {
     final allFavs = await databaseHelper.queryAllRows();
     final loadedFavs = <Map<String, String>>[];
-    
+
     for (var row in allFavs) {
       loadedFavs.add({
         'title': row[DatabaseHelper.columnTitle],
@@ -238,13 +256,65 @@ class _SongPlayerState extends State<SongPlayer> with WidgetsBindingObserver, Ro
         'description': row[DatabaseHelper.columnDescription],
       });
     }
-    
+
     setState(() {
       favoriteSongs = loadedFavs;
     });
-    
+
     updateFavoriteStatus();
   }
+
+  // Future<void> pickAudioFromDevice() async {
+  //   // Request permissions
+  //   var status = await Permission.storage.request();
+  //   if (status.isGranted) {
+  //     try {
+  //       // Pick file
+  //       FilePickerResult? result = await FilePicker.platform.pickFiles(
+  //         type: FileType.audio,
+  //       );
+
+  //       if (result != null) {
+  //         // Get file path
+  //         String filePath = result.files.single.path!;
+  //         String fileName = result.files.single.name;
+
+  //         // Create a new song entry
+  //         Map<String, String> newSong = {
+  //           'title': fileName.replaceAll('.mp3', ''),
+  //           'artist': 'Local Audio',
+  //           'path': filePath,
+  //           'description': 'Audio file from device',
+  //           'isLocal': 'true', // Flag to identify device files
+  //         };
+
+  //         // Play the picked song
+  //         await _audioPlayer.stop();
+
+  //         setState(() {
+  //           // Add to songs list if not already present
+  //           bool exists = songs.any((song) => song['path'] == filePath);
+  //           if (!exists) {
+  //             songs.add(newSong);
+  //           }
+
+  //           // Find the index of the song in the list
+  //           int index = songs.indexWhere((song) => song['path'] == filePath);
+  //           if (index != -1) {
+  //             currentIndex = index;
+  //           }
+  //         });
+
+  //         // Play the file
+  //         await playMusic();
+  //       }
+  //     } catch (e) {
+  //       print('Error picking audio: $e');
+  //     }
+  //   } else {
+  //     print('Permission denied');
+  //   }
+  // }
 
   @override
   Widget build(BuildContext context) {
@@ -330,8 +400,23 @@ class _SongPlayerState extends State<SongPlayer> with WidgetsBindingObserver, Ro
                     ),
                   ],
                 ),
+                // Add this after the Favorites row in landscape layout
+                // const SizedBox(height: 10),
+                // ElevatedButton.icon(
+                //   onPressed: pickAudioFromDevice,
+                //   icon: const Icon(Icons.add, color: Colors.white),
+                //   label: const Text('Add Audio',
+                //       style: TextStyle(color: Colors.white)),
+                //   style: ElevatedButton.styleFrom(
+                //     backgroundColor: Colors.blue,
+                //     padding: const EdgeInsets.symmetric(
+                //         horizontal: 20, vertical: 12),
+                //     shape: RoundedRectangleBorder(
+                //       borderRadius: BorderRadius.circular(30),
+                //     ),
+                //   ),
+                // ),
 
-                // Player controls row
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
@@ -447,6 +532,20 @@ class _SongPlayerState extends State<SongPlayer> with WidgetsBindingObserver, Ro
             ),
           ],
         ),
+        // Add this after the player controls row in portrait layout
+        // const SizedBox(height: 20),
+        // ElevatedButton.icon(
+        //   onPressed: pickAudioFromDevice,
+        //   icon: const Icon(Icons.add, color: Colors.white),
+        //   label: const Text('Add Audio', style: TextStyle(color: Colors.white)),
+        //   style: ElevatedButton.styleFrom(
+        //     backgroundColor: Colors.blue,
+        //     padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+        //     shape: RoundedRectangleBorder(
+        //       borderRadius: BorderRadius.circular(30),
+        //     ),
+        //   ),
+        // ),
       ],
     );
   }
